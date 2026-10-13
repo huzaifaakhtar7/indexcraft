@@ -1,0 +1,7 @@
+mysql-connector-python
+fastapi
+uvicorn
+pydantic
+sqlparse
+pandas
+pytest
