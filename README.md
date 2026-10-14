@@ -193,7 +193,7 @@ indexcraft/
 - [x] Project setup and folder structure
 - [x] 10-table database design
 - [x] Test data generator (1,000,000 orders)
-- [ ] MySQL adapter and timing engine
+- [x] MySQL adapter and timing engine
 - [ ] EXPLAIN reader and rule engine
 - [ ] Index suggestion engine
 - [ ] Clone and test
