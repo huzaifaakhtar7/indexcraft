@@ -4,6 +4,8 @@ SELECT * FROM orders WHERE status = 'shipped' AND order_date >= '2025-01-01' ORD
 
 SELECT * FROM orders WHERE YEAR(order_date) = 2025;
 
+SELECT * FROM orders WHERE DATE(order_date) = '2025-03-15';
+
 SELECT * FROM customers WHERE name LIKE '%ali';
 
 SELECT * FROM order_items WHERE product_id = 42;

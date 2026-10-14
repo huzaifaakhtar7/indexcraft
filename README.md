@@ -194,11 +194,11 @@ indexcraft/
 - [x] 10-table database design
 - [x] Test data generator (1,000,000 orders)
 - [x] MySQL adapter and timing engine
-- [ ] EXPLAIN reader and rule engine
-- [ ] Index suggestion engine
-- [ ] Clone and test
-- [ ] Write-cost measurement and ranking
-- [ ] History database layer
+- [x] EXPLAIN reader and rule engine
+- [x] Index suggestion engine
+- [x] Clone and test
+- [x] Write-cost measurement and ranking
+- [x] History database layer
 - [ ] FastAPI endpoints
 - [ ] Next.js screens
 - [ ] PostgreSQL and SQLite adapters
