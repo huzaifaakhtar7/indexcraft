@@ -1,7 +1,19 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
+:root {
+  color-scheme: light;
+}
+
 body {
   background: #f8fafc;
   color: #0f172a;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+code,
+pre,
+textarea.font-mono {
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+  font-variant-ligatures: none;
 }

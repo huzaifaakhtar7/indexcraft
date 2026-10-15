@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Nav from "@/components/Nav";
+import { StoreProvider } from "@/lib/store";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,29 +8,17 @@ export const metadata: Metadata = {
   description: "Measured Index Design Assistant",
 };
 
-const links = [
-  { href: "/", label: "Connect" },
-  { href: "/analyze", label: "Query" },
-  { href: "/diagnosis", label: "Diagnosis" },
-  { href: "/result", label: "Result" },
-  { href: "/history", label: "History" },
-];
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen">
-        <header className="border-b bg-white">
-          <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-4 px-4 py-3">
-            <span className="font-bold">IndexCraft</span>
-            {links.map((l) => (
-              <Link key={l.href} href={l.href} className="text-sm text-slate-600 hover:text-slate-900">
-                {l.label}
-              </Link>
-            ))}
-          </nav>
-        </header>
-        <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <body className="min-h-screen antialiased">
+        <StoreProvider>
+          <Nav />
+          <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+          <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs text-slate-400 sm:px-6">
+            IndexCraft · Measured Index Design Assistant · every fix is tested on a copy, never on your data
+          </footer>
+        </StoreProvider>
       </body>
     </html>
   );
