@@ -190,6 +190,26 @@ npm run dev
 ```
 App → http://localhost:3000
 
+## 🔌 API
+
+All endpoints are under `/api`. Try them from Swagger at http://localhost:8000/docs.
+
+| Method | Endpoint | Input | Output |
+|---|---|---|---|
+| POST | `/connect` | `db_type` (`mysql` / `postgres` / `sqlite`), host, port, user, password, database | `session_id`, tables and row counts |
+| POST | `/analyze` | `session_id`, `query` | `run_id`, plan, problems, suggestions (with ids), notes |
+| POST | `/test` | `session_id`, `suggestion_id`, `read_share`, `runs` | before/after time, rows examined, insert cost, index size, verdict |
+| POST | `/apply` | `session_id`, `suggestion_id`, `confirm: true` | the SQL that was run on the real database |
+| POST | `/disconnect` | `session_id` | closes the connection and deletes the test copy |
+| GET | `/report/{report_id}?format=text` | report id | plain-English report (`json` or `text`) |
+| GET | `/history?db_type=` | optional filter | past analyses with the best verdict |
+| GET | `/history/{run_id}` | run id | problems, suggestions, test results and report |
+| GET | `/history/stats` | – | average speed-up per rule, recent tests |
+| DELETE | `/history/{run_id}` | run id | deletes the run and its linked rows (cascade) |
+| GET | `/health` | – | backend status |
+
+For SQLite, `database` is the `.db` file path (`shop.db` is found in `backend/data`). The history database is set with `META_DB_HOST`, `META_DB_USER` and `META_DB_PASSWORD`, or falls back to `DB_HOST`, `DB_USER` and `DB_PASSWORD`. Passwords stay in memory only, and validation errors never echo them back.
+
 ## 📁 Project Structure
 
 ```
@@ -220,7 +240,7 @@ indexcraft/
 - [x] Clone and test
 - [x] Write-cost measurement and ranking
 - [x] History database layer
-- [ ] FastAPI endpoints
+- [x] FastAPI endpoints
 - [ ] Next.js screens
 - [x] PostgreSQL and SQLite adapters
 

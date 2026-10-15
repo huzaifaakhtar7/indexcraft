@@ -22,10 +22,10 @@ class MySQLAdapter(BaseAdapter):
     def connect(self, config: dict) -> None:
         self.database = _check_ident(config["database"])
         self.conn = mysql.connector.connect(
-            host=config.get("host", "localhost"),
-            port=int(config.get("port", 3306)),
-            user=config.get("user", "root"),
-            password=config.get("password", ""),
+            host=config.get("host") or "localhost",
+            port=int(config.get("port") or 3306),
+            user=config.get("user") or "root",
+            password=config.get("password") or "",
             database=self.database,
             autocommit=True,
             connection_timeout=10,

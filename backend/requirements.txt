@@ -6,4 +6,4 @@ pydantic
 sqlparse
 pandas
 pytest
-httpx
+httpx2

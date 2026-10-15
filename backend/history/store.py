@@ -1,6 +1,17 @@
+import os
+
 import mysql.connector
 
 META_DB = "indexcraft_meta"
+
+
+def meta_config() -> dict:
+    return {
+        "host": os.getenv("META_DB_HOST") or os.getenv("DB_HOST", "localhost"),
+        "port": int(os.getenv("META_DB_PORT") or os.getenv("DB_PORT", 3306)),
+        "user": os.getenv("META_DB_USER") or os.getenv("DB_USER", "root"),
+        "password": os.getenv("META_DB_PASSWORD") or os.getenv("DB_PASSWORD", ""),
+    }
 
 
 class HistoryStore:
@@ -131,6 +142,10 @@ class HistoryStore:
 
     def get_report(self, report_id: int):
         rows = self._rows("SELECT * FROM reports WHERE report_id = %s", (report_id,))
+        return rows[0] if rows else None
+
+    def get_report_by_run(self, run_id: int):
+        rows = self._rows("SELECT * FROM reports WHERE run_id = %s", (run_id,))
         return rows[0] if rows else None
 
     def delete_run(self, run_id: int) -> bool:
