@@ -10,6 +10,8 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
 
 ![Status](https://img.shields.io/badge/status-in%20development-orange?style=flat-square)
@@ -134,7 +136,9 @@ The core engine never talks to a database directly. Each database has a small **
 ## 🚀 Getting Started
 
 ### Prerequisites
-Python 3.10+ · Node.js LTS · MySQL 8 · Git
+Python 3.10+ · Node.js LTS · MySQL 8 · PostgreSQL 16+ (optional) · Git
+
+SQLite needs no server. It is built into Python.
 
 ### 1. Clone
 ```bash
@@ -142,10 +146,9 @@ git clone https://github.com/huzaifaakhtar7/indexcraft.git
 cd indexcraft
 ```
 
-### 2. Create the databases
-Run these two files in MySQL Workbench:
+### 2. Create the history database
+Run this file once in MySQL Workbench:
 ```
-backend/data/schema_shop.sql
 backend/data/schema_meta.sql
 ```
 
@@ -156,10 +159,28 @@ python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 set DB_PASSWORD=your_mysql_password
-python data\generate_data.py
+set PG_PASSWORD=your_postgres_password
+python data\generate_data.py --db all
 uvicorn main:app --reload
 ```
 API docs → http://localhost:8000/docs
+
+The loader creates the `shop` tables and fills them with the same data (fixed random seed) in every database:
+
+| Option | Meaning |
+|---|---|
+| `--db mysql` | MySQL only (default) |
+| `--db postgres sqlite` | any mix of `mysql`, `postgres`, `sqlite` |
+| `--db all` | all three databases |
+| `--scale 0.1` | 100,000 orders instead of 1,000,000 (for slow machines) |
+
+| Database | Where the data goes | Settings |
+|---|---|---|
+| MySQL | database `shop` | `DB_HOST`, `DB_USER`, `DB_PASSWORD` |
+| PostgreSQL | database `shop` (created if missing) | `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD` |
+| SQLite | file `backend/data/shop.db` | `--sqlite-path` |
+
+To run the sample queries on all three databases and test the best fix on a copy: `python check_part2.py`
 
 ### 4. Frontend
 ```bash
@@ -179,7 +200,7 @@ indexcraft/
 │   ├── core/         parser, rules, suggester, benchmark, scoring, reporter
 │   ├── adapters/     base, mysql, postgres, sqlite, factory
 │   ├── history/      saves runs into indexcraft_meta
-│   ├── data/         schemas, data generator, sample queries
+│   ├── data/         schemas (MySQL, PostgreSQL, SQLite), data loader, sample queries
 │   └── tests/
 ├── frontend/
 │   ├── app/          connect, analyze, diagnosis, result, history
@@ -201,7 +222,7 @@ indexcraft/
 - [x] History database layer
 - [ ] FastAPI endpoints
 - [ ] Next.js screens
-- [ ] PostgreSQL and SQLite adapters
+- [x] PostgreSQL and SQLite adapters
 
 ## 🛡️ Safety
 
