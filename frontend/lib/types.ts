@@ -156,3 +156,8 @@ export interface RunDetail {
   suggestions: RunSuggestion[];
   report: { report_id: number; report_text: string; created_at: string } | null;
 }
+
+export interface HistoryStats {
+  speedup_by_rule: { rule_code: string; cases: number; avg_speedup: number | null }[];
+  recent_tests: { run_id: number; db_type: DbType; created_at: string; before_ms: number; after_ms: number; verdict: Verdict }[];
+}

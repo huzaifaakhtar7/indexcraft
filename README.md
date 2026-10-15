@@ -63,6 +63,29 @@ CREATE INDEX idx_orders_customer ON orders (customer_id);
 
 <sub>Example numbers only. Real results depend on your machine.</sub>
 
+## 🖥️ Screens
+
+| Screen | What it does |
+|---|---|
+| **1. Connect** | Database type dropdown (MySQL / PostgreSQL / SQLite), connection details, tables with row counts |
+| **2. Query** | SQL box, sample queries for the chosen database, read/write mix slider |
+| **3. Diagnosis** | Plan summary, problem cards (R1–R7), suggestion cards with exact SQL and a **Test on copy** button |
+| **4. Result** | Verdict, before/after table, bar charts (linear or log scale), **Apply** with confirmation, report download |
+| **5. History** | Past analyses from `indexcraft_meta`, filter by database, average speed-up per rule, run detail and delete |
+
+<table>
+<tr>
+<td><img src="docs/screenshots/query.png" alt="Query screen" /></td>
+<td><img src="docs/screenshots/diagnosis.png" alt="Diagnosis screen" /></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/result.png" alt="Result screen" /></td>
+<td><img src="docs/screenshots/history.png" alt="History screen" /></td>
+</tr>
+</table>
+
+<sub>Screenshots from the MySQL `shop` database with 1,000,000 orders.</sub>
+
 ## 🏗️ Architecture
 
 ```
@@ -190,6 +213,8 @@ npm run dev
 ```
 App → http://localhost:3000
 
+The app talks to `http://localhost:8000/api` by default. To change it, copy `frontend/.env.local.example` to `frontend/.env.local` and edit `NEXT_PUBLIC_API_URL`.
+
 ## 🔌 API
 
 All endpoints are under `/api`. Try them from Swagger at http://localhost:8000/docs.
@@ -223,7 +248,7 @@ indexcraft/
 │   ├── data/         schemas (MySQL, PostgreSQL, SQLite), data loader, sample queries
 │   └── tests/
 ├── frontend/
-│   ├── app/          connect, analyze, diagnosis, result, history
+│   ├── app/          connect, analyze, diagnosis, result, history, history/[runId]
 │   ├── components/
 │   └── lib/api.ts
 └── docs/
@@ -241,7 +266,7 @@ indexcraft/
 - [x] Write-cost measurement and ranking
 - [x] History database layer
 - [x] FastAPI endpoints
-- [ ] Next.js screens
+- [x] Next.js screens
 - [x] PostgreSQL and SQLite adapters
 
 ## 🛡️ Safety

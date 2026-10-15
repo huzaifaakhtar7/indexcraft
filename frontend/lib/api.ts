@@ -6,6 +6,7 @@ import type {
   ConnectResponse,
   DbType,
   HistoryRun,
+  HistoryStats,
   RunDetail,
   TestResult,
 } from "./types";
@@ -74,6 +75,8 @@ export const applySuggestion = (session_id: string, suggestion_id: number) =>
 
 export const getHistory = (db_type?: DbType | "") =>
   call<HistoryRun[]>(() => api.get("/history", { params: db_type ? { db_type, limit: 200 } : { limit: 200 } }));
+
+export const getStats = () => call<HistoryStats>(() => api.get("/history/stats"));
 
 export const getRun = (run_id: number) => call<RunDetail>(() => api.get(`/history/${run_id}`));
 
