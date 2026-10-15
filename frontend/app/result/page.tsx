@@ -185,7 +185,10 @@ export default function ResultPage() {
       </section>
 
       <div className="grid gap-6">
-        <Card title="Before and after" subtitle="Same copy, same data, same query text.">
+        <Card
+          title="Before and after"
+          subtitle={s.rewritten_query ? "Same copy and data. “After” runs the rewritten query with the index." : "Same copy, same data, same query text."}
+        >
           <ResultTable result={r} />
         </Card>
         <Card title="Chart" subtitle="Bars show the median time. Switch to log scale when the gap is very large.">
