@@ -1,7 +1,9 @@
 mysql-connector-python
+psycopg2-binary
 fastapi
 uvicorn
 pydantic
 sqlparse
 pandas
 pytest
+httpx

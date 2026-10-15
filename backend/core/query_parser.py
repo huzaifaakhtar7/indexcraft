@@ -10,13 +10,37 @@ _WHERE_RE = re.compile(r"\bwhere\b(.*?)" + _CLAUSE_END, re.I | re.S)
 _ORDER_RE = re.compile(r"\border\s+by\b(.*?)(?=\blimit\b|$)", re.I | re.S)
 _GROUP_RE = re.compile(r"\bgroup\s+by\b(.*?)(?=\bhaving\b|\border\s+by\b|\blimit\b|$)", re.I | re.S)
 _COL = r"`?(?:(\w+)`?\.`?)?(\w+)`?"
-_FUNC_RE = re.compile(r"^(\w+)\s*\(\s*" + _COL + r"\s*\)\s*(=|>=|<=|<>|!=|>|<|between\b|in\b|like\b)", re.I)
+_OPS = r"(=|>=|<=|<>|!=|>|<|between\b|in\b|like\b)"
+_FUNC_RE = re.compile(r"^(\w+)\s*\(\s*" + _COL + r"\s*\)\s*" + _OPS + r"(.*)$", re.I | re.S)
+_EXTRACT_RE = re.compile(r"^extract\s*\(\s*(\w+)\s+from\s+" + _COL + r"\s*\)\s*" + _OPS + r"(.*)$", re.I | re.S)
+_STRFTIME_RE = re.compile(r"^strftime\s*\(\s*'([^']*)'\s*,\s*" + _COL + r"\s*\)\s*" + _OPS + r"(.*)$", re.I | re.S)
+_INNER_FROM_RE = re.compile(r"\b(extract|substring|trim)\s*\(([^()]*?)\bfrom\b", re.I)
+_STRFTIME_KIND ={"%y": "YEAR", "%y-%m-%d": "DATE"}
 _LIKE_RE = re.compile(r"^" + _COL + r"\s+like\s+'([^']*)'", re.I)
 _BETWEEN_RE = re.compile(r"^" + _COL + r"\s+between\b", re.I)
 _IN_RE = re.compile(r"^" + _COL + r"\s+in\s*\(", re.I)
 _CMP_RE = re.compile(r"^" + _COL + r"\s*(=|>=|<=|<>|!=|>|<)\s*(.+)$", re.I | re.S)
 _IS_NULL_RE = re.compile(r"^" + _COL + r"\s+is\s+(not\s+)?null", re.I)
 _COLREF_RE = re.compile(r"^`?(\w+)`?\.`?(\w+)`?$")
+
+
+def _function_call(part: str):
+    m = _EXTRACT_RE.match(part)
+    if m:
+        unit, prefix, column, op, value = m.groups()
+        name = "YEAR" if unit.lower() == "year" else "EXTRACT"
+        display = f"EXTRACT({unit.upper()} FROM {column})"
+        return name, prefix, column, op, value, display
+    m = _STRFTIME_RE.match(part)
+    if m:
+        fmt, prefix, column, op, value = m.groups()
+        name = _STRFTIME_KIND.get(fmt.lower(), "STRFTIME")
+        return name, prefix, column, op, value, f"strftime('{fmt}', {column})"
+    m = _FUNC_RE.match(part)
+    if m:
+        func, prefix, column, op, value = m.groups()
+        return func.upper(), prefix, column, op, value, f"{func.upper()}({column})"
+    return None
 
 
 def _clean(query: str) -> str:
@@ -87,7 +111,7 @@ def parse_query(query: str, columns_by_table: dict = None) -> ParsedQuery:
         raise ValueError("Only SELECT queries are supported")
 
     tables, alias_map = [], {}
-    for name, alias in _TABLE_RE.findall(q):
+    for name, alias in _TABLE_RE.findall(_INNER_FROM_RE.sub(r"\1(\2 ", q)):
         if alias and alias.lower() in _STOP:
             alias = ""
         tables.append({"name": name, "alias": alias or name})
@@ -121,10 +145,15 @@ def parse_query(query: str, columns_by_table: dict = None) -> ParsedQuery:
             has_or = True
         for raw in _split_and(where_text):
             part = _strip_parens(raw)
-            m = _FUNC_RE.match(part)
-            if m:
-                t, c = resolve(m.group(2), m.group(3))
-                functions.append({"function": m.group(1).upper(), "table": t, "column": c, "text": part})
+            call = _function_call(part)
+            if call:
+                name, prefix, column, op, value, display = call
+                t, c = resolve(prefix, column)
+                functions.append({
+                    "function": name, "table": t, "column": c, "text": part, "display": display,
+                    "col_ref": f"{prefix}.{column}" if prefix else column,
+                    "op": op.strip().upper(), "value": value.strip().strip("'"),
+                })
                 continue
             m = _LIKE_RE.match(part)
             if m:

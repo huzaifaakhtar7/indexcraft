@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 MAX_SUGGESTIONS = 3
 LOW_DISTINCT = 100
-MAX_NAME = 64
+MAX_NAME = 63
 
 
 def index_name(table: str, columns: list) -> str:
@@ -16,24 +16,19 @@ def create_index_sql(table: str, columns: list) -> str:
 
 
 def _date_rewrite(query: str, function: dict):
-    col = re.escape(function["column"])
-    ref = r"((?:`?\w+`?\.)?`?" + col + r"`?)"
-    if function["function"] == "YEAR":
-        m = re.search(r"YEAR\s*\(\s*" + ref + r"\s*\)\s*=\s*'?(\d{4})'?", query, re.I)
-        if not m:
-            return None
-        year = int(m.group(2))
+    text, ref = function.get("text"), function.get("col_ref") or function.get("column")
+    if not text or text not in query or function.get("op") != "=":
+        return None
+    value = function.get("value") or ""
+    if function["function"] == "YEAR" and re.fullmatch(r"\d{4}", value):
+        year = int(value)
         start, end = f"{year}-01-01", f"{year + 1}-01-01"
-    elif function["function"] == "DATE":
-        m = re.search(r"DATE\s*\(\s*" + ref + r"\s*\)\s*=\s*'(\d{4}-\d{2}-\d{2})'", query, re.I)
-        if not m:
-            return None
-        day = date.fromisoformat(m.group(2))
+    elif function["function"] == "DATE" and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        day = date.fromisoformat(value)
         start, end = day.isoformat(), (day + timedelta(days=1)).isoformat()
     else:
         return None
-    replacement = f"{m.group(1)} >= '{start}' AND {m.group(1)} < '{end}'"
-    return query[:m.start()] + replacement + query[m.end():]
+    return query.replace(text, f"{ref} >= '{start}' AND {ref} < '{end}'", 1)
 
 
 def _covered(existing: list, columns: list) -> bool:
@@ -45,7 +40,7 @@ def _covered(existing: list, columns: list) -> bool:
     return False
 
 
-def suggest(parsed, problems: list, stats_fn=None, indexes_fn=None) -> dict:
+def suggest(parsed, problems: list, stats_fn=None, indexes_fn=None, engine: str = "MySQL") -> dict:
     query = parsed["query"]
     stats_cache = {}
     notes = []
@@ -94,13 +89,14 @@ def suggest(parsed, problems: list, stats_fn=None, indexes_fn=None) -> dict:
 
     for p in by_rule.get("R3", []):
         rewritten = _date_rewrite(query, p)
+        shown = p.get("display") or f"{p['function']}({p['columns'][0]})"
         if rewritten:
             add(p["table"], [p["column"] if "column" in p else p["columns"][0]],
-                f"Rewrite {p['function']}({p['columns'][0]}) as a date range so the column stays "
+                f"Rewrite {shown} as a date range so the column stays "
                 f"visible, then index {p['columns'][0]}.",
                 p, kind="rewrite", rewritten=rewritten, priority=1)
         else:
-            notes.append(f"{p['function']}({p['columns'][0]}) cannot be rewritten automatically. "
+            notes.append(f"{shown} cannot be rewritten automatically. "
                          f"Rewrite it by hand as a plain comparison on {p['columns'][0]}.")
 
     for p in by_rule.get("R1", []):
@@ -111,7 +107,7 @@ def suggest(parsed, problems: list, stats_fn=None, indexes_fn=None) -> dict:
                              f"{s['distinct_values']} different values in {s['total_rows']:,} rows.")
                 continue
             add(p["table"], [col],
-                f"Single-column index on {col} lets MySQL jump straight to the matching rows "
+                f"Single-column index on {col} lets {engine} jump straight to the matching rows "
                 f"instead of reading the whole '{p['table']}' table.",
                 p, priority=2)
 
@@ -125,7 +121,7 @@ def suggest(parsed, problems: list, stats_fn=None, indexes_fn=None) -> dict:
 
     for p in by_rule.get("R4", []):
         notes.append(f"LIKE '{p['pattern']}' cannot use a normal index. Consider a search that "
-                     f"starts at the beginning of the text, or a FULLTEXT index.")
+                     f"starts at the beginning of the text, or a full-text search index.")
 
     candidates.sort(key=lambda c: (c["priority"], -len(c["columns"])))
     chosen = candidates[:MAX_SUGGESTIONS]
@@ -149,10 +145,11 @@ def suggest(parsed, problems: list, stats_fn=None, indexes_fn=None) -> dict:
     return {"suggestions": chosen, "notes": notes, "extra_problems": low_card_problems}
 
 
-def redundant_indexes(table: str, indexes: list) -> list:
+def redundant_indexes(table: str, indexes: list, drop_sql_fn=None) -> list:
+    drop_sql_fn = drop_sql_fn or (lambda t, name: f"DROP INDEX {name} ON {t}")
     problems = []
     for a in indexes:
-        if a["name"] == "PRIMARY":
+        if a.get("primary") or a["name"] == "PRIMARY":
             continue
         for b in indexes:
             if a is b or len(b["columns"]) <= len(a["columns"]):
@@ -164,7 +161,7 @@ def redundant_indexes(table: str, indexes: list) -> list:
                     "message": f"Index {a['name']} ({', '.join(a['columns'])}) is the start of "
                                f"{b['name']} ({', '.join(b['columns'])}). The shorter one can be "
                                f"dropped to save space and speed up writes.",
-                    "columns": a["columns"], "drop_sql": f"DROP INDEX {a['name']} ON {table}",
+                    "columns": a["columns"], "drop_sql": drop_sql_fn(table, a["name"]),
                 })
                 break
     return problems

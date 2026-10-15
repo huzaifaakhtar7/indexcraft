@@ -1,4 +1,4 @@
-from core.plan_normalizer import normalize_mysql
+from core.plan_normalizer import normalize
 from core.query_parser import parse_query
 from core.rules import SEVERITY_ORDER, run_rules
 from core.scoring import score
@@ -11,8 +11,8 @@ def diagnose(adapter, query: str) -> dict:
     columns = {t["name"]: adapter.list_columns(t["name"]) for t in first["tables"]}
     parsed = parse_query(query, columns)
     explain = adapter.explain(parsed["query"])
-    plan = normalize_mysql(explain["rows"], parsed["alias_map"])
-    problems = run_rules(parsed, plan)
+    plan = normalize(adapter.name, explain, parsed["alias_map"])
+    problems = run_rules(parsed, plan, adapter.label)
     return {"query": parsed["query"], "parsed": parsed, "plan": plan, "problems": problems}
 
 
@@ -22,10 +22,11 @@ def analyze(adapter, query: str) -> dict:
     indexes = {t["name"]: adapter.list_indexes(t["name"]) for t in parsed["tables"]}
     out = suggest(parsed, result["problems"],
                   stats_fn=adapter.column_stats,
-                  indexes_fn=lambda t: indexes.get(t, []))
+                  indexes_fn=lambda t: indexes.get(t, []),
+                  engine=adapter.label)
     problems = result["problems"] + out["extra_problems"]
     for table, idx in indexes.items():
-        problems += redundant_indexes(table, idx)
+        problems += redundant_indexes(table, idx, adapter.drop_index_sql)
     problems.sort(key=lambda p: (SEVERITY_ORDER[p["severity"]], p["rule_code"]))
     result["problems"] = problems
     result["suggestions"] = out["suggestions"]
@@ -35,7 +36,7 @@ def analyze(adapter, query: str) -> dict:
 
 
 def _plan_summary(adapter, query, on_clone, alias_map):
-    plan = normalize_mysql(adapter.explain(query, on_clone=on_clone)["rows"], alias_map)
+    plan = normalize(adapter.name, adapter.explain(query, on_clone=on_clone), alias_map)
     return {
         "rows_examined": sum(s["rows_examined"] for s in plan),
         "access": ", ".join(f"{s['table']}: {s['access_label']}" for s in plan),

@@ -33,3 +33,15 @@ def test_join_alias():
 def test_between_not_split():
     p = parse_query("SELECT * FROM orders WHERE order_date BETWEEN '2025-01-01' AND '2025-02-01' AND status = 'paid'")
     assert len(p["conditions"]) == 2
+
+
+def test_postgres_extract_year():
+    p = parse_query("SELECT * FROM orders WHERE EXTRACT(YEAR FROM order_date) = 2025")
+    f = p["functions"][0]
+    assert f["function"] == "YEAR" and f["column"] == "order_date" and f["value"] == "2025"
+
+
+def test_sqlite_strftime_year():
+    p = parse_query("SELECT * FROM orders WHERE strftime('%Y', order_date) = '2025'")
+    f = p["functions"][0]
+    assert f["function"] == "YEAR" and f["value"] == "2025"

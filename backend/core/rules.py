@@ -26,7 +26,7 @@ def _problem(code, severity, table, title, message, **extra):
             "title": title, "message": message, **extra}
 
 
-def r1_full_scan(parsed, plan):
+def r1_full_scan(parsed, plan, engine="MySQL"):
     out = []
     for step in plan:
         if not step["full_scan"] or step["rows_examined"] < MIN_ROWS:
@@ -42,7 +42,7 @@ def r1_full_scan(parsed, plan):
         if cols:
             out.append(_problem(
                 "R1", "high", t, "Full table scan",
-                f"MySQL reads all {step['rows_examined']:,} rows of '{t}' because no index "
+                f"{engine} reads all {step['rows_examined']:,} rows of '{t}' because no index "
                 f"exists on {', '.join(cols)}. An index lets it jump straight to the matching rows.",
                 columns=cols, rows_examined=step["rows_examined"]))
         else:
@@ -54,7 +54,7 @@ def r1_full_scan(parsed, plan):
     return out
 
 
-def r2_composite(parsed, plan):
+def r2_composite(parsed, plan, engine="MySQL"):
     out = []
     for step in plan:
         t = step["table"]
@@ -82,30 +82,31 @@ def r2_composite(parsed, plan):
     return out
 
 
-def r3_function_on_column(parsed, plan):
+def r3_function_on_column(parsed, plan, engine="MySQL"):
     out = []
     for f in parsed["functions"]:
         out.append(_problem(
             "R3", "high", f["table"], "Function on a column",
-            f"{f['function']}({f['column']}) hides the column from any index, so MySQL must "
-            f"calculate it for every row. Rewrite it as a plain range on {f['column']} "
+            f"{f.get('display') or f['function'] + '(' + f['column'] + ')'} hides the column from "
+            f"any index, so {engine} must calculate it for every row. Rewrite it as a plain range on {f['column']} "
             f"(for example {f['column']} >= '2025-01-01' AND {f['column']} < '2026-01-01').",
-            columns=[f["column"]], column=f["column"], function=f["function"], text=f["text"]))
+            columns=[f["column"]], column=f["column"], function=f["function"], text=f["text"],
+            display=f.get("display"), col_ref=f.get("col_ref"), op=f.get("op"), value=f.get("value")))
     return out
 
 
-def r4_leading_wildcard(parsed, plan):
+def r4_leading_wildcard(parsed, plan, engine="MySQL"):
     out = []
     for w in parsed["leading_wildcards"]:
         out.append(_problem(
             "R4", "medium", w["table"], "Leading wildcard in LIKE",
             f"LIKE '{w['pattern']}' starts with a wildcard, so a normal index on {w['column']} "
-            f"cannot be used. Search from the start of the text, or use a FULLTEXT index.",
+            f"cannot be used. Search from the start of the text, or use a full-text search index.",
             columns=[w["column"]], pattern=w["pattern"]))
     return out
 
 
-def r6_filesort(parsed, plan):
+def r6_filesort(parsed, plan, engine="MySQL"):
     out = []
     for step in plan:
         if not step["filesort"] or step["rows_examined"] < MIN_ROWS:
@@ -115,8 +116,8 @@ def r6_filesort(parsed, plan):
         if not order:
             continue
         out.append(_problem(
-            "R6", "medium", t, "Extra sorting step (filesort)",
-            f"MySQL sorts the rows of '{t}' after reading them. Adding {', '.join(order)} "
+            "R6", "medium", t, "Extra sorting step",
+            f"{engine} sorts the rows of '{t}' after reading them. Adding {', '.join(order)} "
             f"to the end of the index returns rows already in order, so the sort disappears.",
             columns=order))
     return out
@@ -125,9 +126,9 @@ def r6_filesort(parsed, plan):
 ALL_RULES = [r1_full_scan, r2_composite, r3_function_on_column, r4_leading_wildcard, r6_filesort]
 
 
-def run_rules(parsed, plan) -> list:
+def run_rules(parsed, plan, engine: str = "MySQL") -> list:
     problems = []
     for rule in ALL_RULES:
-        problems.extend(rule(parsed, plan))
+        problems.extend(rule(parsed, plan, engine))
     problems.sort(key=lambda p: (SEVERITY_ORDER[p["severity"]], p["rule_code"]))
     return problems

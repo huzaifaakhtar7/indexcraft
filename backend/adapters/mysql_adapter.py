@@ -1,33 +1,17 @@
-import re
 import statistics
 import time
 
 import mysql.connector
 
-from adapters.base import BaseAdapter
+from adapters.base import TIMEOUT_MS, BaseAdapter, check_create_index, table_from_ddl
+from adapters.base import check_ident as _check_ident
 from core.benchmark import median_ms
-
-_IDENT = re.compile(r"^[A-Za-z0-9_]+$")
-TIMEOUT_MS = 60_000
-
-
-def _check_ident(name: str) -> str:
-    if not _IDENT.match(name or ""):
-        raise ValueError(f"Invalid name: {name}")
-    return name
-
-
-def _check_select(query: str) -> str:
-    q = query.strip().rstrip(";").strip()
-    if ";" in q:
-        raise ValueError("Only one statement is allowed")
-    if not q.lower().startswith("select"):
-        raise ValueError("Only SELECT queries are allowed")
-    return q
+from core.query_guard import check_select as _check_select
 
 
 class MySQLAdapter(BaseAdapter):
     name = "mysql"
+    label = "MySQL"
 
     def __init__(self):
         self.conn = None
@@ -141,7 +125,8 @@ class MySQLAdapter(BaseAdapter):
             r = {k.lower(): v for k, v in r.items()}
             item = indexes.setdefault(
                 r["index_name"],
-                {"name": r["index_name"], "columns": [], "unique": not r["non_unique"]},
+                {"name": r["index_name"], "columns": [], "unique": not r["non_unique"],
+                 "primary": r["index_name"] == "PRIMARY"},
             )
             item["columns"].append(r["column_name"])
         return list(indexes.values())
@@ -177,18 +162,20 @@ class MySQLAdapter(BaseAdapter):
         return self.clone_db
 
     def create_index(self, ddl: str, on_clone: bool = True) -> None:
-        if not ddl.strip().lower().startswith("create index"):
-            raise ValueError("Only CREATE INDEX statements are allowed")
+        ddl = check_create_index(ddl)
         if on_clone and not self.clone_db:
             raise RuntimeError("Create a clone first")
         self._use(self._target(on_clone))
         try:
-            self._exec(ddl.strip().rstrip(";"))
-            table = re.search(r"\bon\s+`?([A-Za-z0-9_]+)`?", ddl, re.IGNORECASE)
+            self._exec(ddl)
+            table = table_from_ddl(ddl)
             if table:
-                self._exec(f"ANALYZE TABLE `{table.group(1)}`")
+                self._exec(f"ANALYZE TABLE `{_check_ident(table)}`")
         finally:
             self._use(self.database)
+
+    def drop_index_sql(self, table: str, index_name: str) -> str:
+        return f"DROP INDEX {index_name} ON {table}"
 
     def drop_index(self, table: str, index_name: str, on_clone: bool = True) -> None:
         self._exec(

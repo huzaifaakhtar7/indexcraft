@@ -26,3 +26,8 @@ def test_r3_function():
 
 def test_small_table_ignored():
     assert codes("SELECT * FROM orders WHERE customer_id = 5", plan(rows=10)) == []
+
+
+def test_messages_name_the_database():
+    p = run_rules(parse_query("SELECT * FROM orders WHERE customer_id = 5"), plan(), "PostgreSQL")
+    assert p[0]["message"].startswith("PostgreSQL reads all")
